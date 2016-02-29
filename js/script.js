@@ -1,152 +1,42 @@
-require(["esri/map",
-  "esri/toolbars/draw",
-  "esri/layers/StreamLayer",
-  "esri/InfoTemplate",
-  "esri/graphic",
-  "esri/symbols/SimpleFillSymbol",
-  "esri/symbols/SimpleLineSymbol",
-  "dojo/_base/Color",
-  "dojo/on",
-  "dojo/dom",
-  "dojo/domReady!"
-], function(Map, Draw, StreamLayer, InfoTemplate, Graphic, SimpleFillSymbol,
-            SimpleLineSymbol, Color, on,dom) {
-  var self = this;
-  var busArray= [];
-  $.get("https://api.wmata.com/Bus.svc/json/jBusPositions?All&api_key=635e0ed2348f420cbe874f1bcd5d1b11", function(d){
-    busArray = d['BusPositions'];
-  })
-
-  var map,
-      drawTools,
-      streamLayer;
-
-  function init(){
-    map = new Map("map", {
-      basemap: "gray",
-      // center: [-122.402, 47.642],
-      center: [-77.0164,38.9047],
-      zoom: 10
+require([
+      "esri/map", "esri/geometry/Point",
+      "esri/symbols/SimpleMarkerSymbol", "esri/graphic",
+      "dojo/_base/array",
+      "dojo/domReady!"
+  ],
+  function(
+    Map,
+    Point,
+    SimpleMarkerSymbol,
+    Graphic,
+    arrayUtil
+  ) {
+    var map = new Map("map", {
+      basemap: "streets",
+      center: [-77.0164, 38.9047],
+      zoom: 14
     });
+    var self = this;
+    var busArray= [];
+    var iconPath = "M2.386,21.467h2.386v14.312H2.386C1.067,35.779,0,34.717,0,33.394v-9.542C0,22.54,1.067,21.467,2.386,21.467z M73.948,21.467h-2.388v14.312h2.388c1.317,0,2.386-1.062,2.386-2.385v-9.542C76.334,22.54,75.268,21.467,73.948,21.467z M66.792,16.698v42.937c0,2.638-2.133,4.771-4.771,4.771v4.771c0,2.639-2.133,4.771-4.771,4.771h-4.772   c-2.637,0-4.771-2.137-4.771-4.771v-4.771H28.626v4.771c0,2.639-2.134,4.771-4.771,4.771h-4.769c-2.638,0-4.771-2.137-4.771-4.771   v-4.771c-2.637,0-4.771-2.137-4.771-4.771V16.698C9.542,8.796,15.954,2.386,23.855,2.386H52.48   C60.382,2.386,66.792,8.794,66.792,16.698z M28.626,11.928h19.083V7.157H28.626V11.928z M23.855,54.866   c0-2.641-2.134-4.771-4.769-4.771c-2.637,0-4.771,2.133-4.771,4.771c0,2.635,2.134,4.771,4.771,4.771   C21.72,59.636,23.855,57.499,23.855,54.866z M62.021,54.866c0-2.641-2.133-4.771-4.771-4.771s-4.771,2.133-4.771,4.771   c0,2.635,2.136,4.771,4.771,4.771C59.889,59.636,62.021,57.499,62.021,54.866z M62.021,16.698H14.313v28.625h47.708V16.698   L62.021,16.698z";
 
-    drawTools = new Draw(map);
+    map.on("load", getBuses);
 
-    //connect click events to UI buttons
-    on(dojo.byId("cmdToggleStreamLayer"), "click", toggleStreamLayer);
-    on(dojo.byId("cmdToggleSpatialFilter"), "click", toggleSpatialFilter);
-
-    on(drawTools, "draw-end", function(evt){
-      drawTools.deactivate();
-      setSpatialFilter(evt.geometry);
-      dojo.byId("cmdToggleSpatialFilter").value = "Clear Spatial Filter";
-    });
-  }
-
-  /*************************************************
-   *
-   * Functions to add and remove Stream Layer
-   *
-   *************************************************/
-  function toggleStreamLayer(){
-    if(streamLayer){
-      removeStreamLayer();
+    function createSymbol(path, color){
+      var markerSymbol = new esri.symbol.SimpleMarkerSymbol();
+      markerSymbol.setPath(path);
+      markerSymbol.setColor(new dojo.Color(color));
+      markerSymbol.setOutline(null);
+      return markerSymbol;
     }
-    else{
-      addStreamLayer();
+
+    function getBuses(){
+      $.get("https://api.wmata.com/Bus.svc/json/jBusPositions?All&api_key=635e0ed2348f420cbe874f1bcd5d1b11", function(d){
+        busArray = d.BusPositions;
+        busArray.forEach(function(point){
+          var graphic = new Graphic(new Point([point.Lon, point.Lat]), createSymbol(iconPath, "black"));
+          map.graphics.add(graphic);
+        })
+      });
     }
-  }
-  function addStreamLayer(){
-    //url to stream service
-    var svcUrl = dojo.byId("txtStreamUrl").value;
-
-    //construct Stream Layer
-    streamLayer = new StreamLayer(svcUrl, {
-      purgeOptions: { displayCount: 10000 },
-      infoTemplate: new InfoTemplate("Attributes", "${*}")
-    });
-
-    //When layer loads, register listeners for layer events and add layer to map
-    streamLayer.on("load", function(){
-      //Connect and Disconnect events
-      streamLayer.on("connect", processConnect);
-      streamLayer.on("disconnect", processDisconnect);
-
-      //FilterChange event
-      streamLayer.on("filter-change", processFilterChange);
-
-      //Add layer to map
-      map.addLayer(streamLayer);
-    });
-  }
-
-  function removeStreamLayer(){
-    if (streamLayer){
-      map.removeLayer(streamLayer);
-      streamLayer = null;
-      map.graphics.clear();
-    }
-  }
-
-  /*********************************************************
-   *
-   * Stream layer event handlers
-   *
-   *********************************************************/
-  function processConnect(){
-    dojo.byId("cmdToggleStreamLayer").value = "Remove Stream Layer";
-    dojo.byId("txtStreamUrl").style.backgroundColor = "#008000";
-    dojo.byId("cmdToggleSpatialFilter").value = "Draw Extent";
-    dojo.byId("divFilterControls").style.display = "block";
-  }
-
-  function processDisconnect(){
-    dojo.byId("cmdToggleStreamLayer").value = "Add Stream Layer";
-    dojo.byId("txtStreamUrl").style.backgroundColor = "#8b0000";
-    dojo.byId("divFilterControls").style.display = "none";
-  }
-
-  function processFilterChange(evt){
-    //clear layer graphics
-    streamLayer.clear();
-
-    //the event contains a filter property that is the current filter set on the service
-    //update map graphic to show current spatial filter
-    var bbox = evt.filter.geometry;
-    map.graphics.clear();
-    if(bbox){
-      map.graphics.add(new Graphic(bbox,
-          new SimpleFillSymbol(SimpleFillSymbol.STYLE_NULL,
-              new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID,
-                  new Color( [5, 112, 176] ), 2),
-              new Color( [5, 112, 176, 0] ))));
-    }
-  }
-
-  /************************************************
-   *
-   * Functions to set and clear spatial filter
-   *
-   ************************************************/
-  function toggleSpatialFilter(){
-    var currentSpatialFilter = null;
-    if(streamLayer){
-      currentSpatialFilter = streamLayer.getFilter().geometry;
-    }
-    if (!currentSpatialFilter){
-      drawTools.activate(Draw.EXTENT);
-    }
-    else{
-      setSpatialFilter(null);
-      dojo.byId("cmdToggleSpatialFilter").value = "Draw Extent";
-    }
-  }
-
-  //Set spatial filter on stream layer. Setting to null clears filter
-  function setSpatialFilter(bbox){
-    if (streamLayer){
-      streamLayer.setGeometryDefinition(bbox);
-    }
-  }
-
-  init();
-});
+  });
