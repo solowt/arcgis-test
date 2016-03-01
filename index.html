@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no">
-    <title>StreamLayer using ArcGIS API for JavaScript and ArcGIS Server Stream Service</title>
+    <title>WMATA Buses in DC</title>
     <link rel="stylesheet" href="https://js.arcgis.com/3.15/dijit/themes/tundra/tundra.css">
     <link rel="stylesheet" href="https://js.arcgis.com/3.15/esri/css/esri.css">
     <style type="text/css">
@@ -27,12 +27,15 @@
         height: 80%;
       }
     </style>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
     <script src="https://js.arcgis.com/3.15/"></script>
   </head>
   <body>
-    <div id="data"></div>
     <div id="map"></div>
+    <div class="controls">
+      <button class="busButton">Get Buses</button>
+      <button class="trainButton">Get Stations</button>
+    </div>
   </body>
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
   <script src="js/script.js"></script>
 </html>
